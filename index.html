@@ -41,14 +41,16 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cu
 /* ---------- Game layout ---------- */
 #game{
   position:absolute;inset:0;display:grid;
-  grid-template-columns:minmax(0,1fr) clamp(224px,25vw,320px);
-  gap:12px;
-  padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));
+  --sw:80px;
+  grid-template-columns:minmax(0,1fr) var(--sw);
+  gap:8px;
+  padding:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left));
 }
+#game[data-panel="full"]{--sw:clamp(224px,25vw,300px)}
 #boardArea{position:relative;min-width:0;min-height:0;display:flex;align-items:center;justify-content:center}
 #frame{
-  position:relative;width:100%;height:100%;max-width:calc((100vh - 24px)*1.28);
-  padding:9px;border-radius:18px;
+  position:relative;width:100%;height:100%;
+  padding:6px;border-radius:14px;
   background:linear-gradient(145deg,#0b3a27,#052417);
   box-shadow:0 0 0 1.5px var(--line) inset,0 0 0 3px var(--turn,transparent),0 14px 40px rgba(0,0,0,.45);
   transition:box-shadow .3s ease;
@@ -107,7 +109,8 @@ svg.suit{fill:currentColor;display:block}
 
 .grow{display:flex;align-items:center;justify-content:center;min-height:0}
 #toast{
-  padding:12px 16px;border-radius:16px;text-align:center;line-height:1.3;
+  position:absolute;left:0;right:0;margin:0 auto;width:max-content;max-width:90%;bottom:18px;z-index:5;
+  padding:12px 18px;border-radius:16px;text-align:center;line-height:1.3;
   background:rgba(12,10,4,.9);color:var(--gold);font-weight:650;font-size:16px;
   box-shadow:0 0 0 1.5px var(--gold-deep),0 10px 30px rgba(0,0,0,.4);
   opacity:0;transform:translateY(8px) scale(.96);transition:transform .3s cubic-bezier(.2,.9,.3,1.1),opacity .3s;pointer-events:none;
@@ -188,19 +191,47 @@ svg.suit{fill:currentColor;display:block}
 .rc .u{font-size:12px;letter-spacing:.18em;font-weight:700;color:rgba(251,247,236,.6)}
 .link{display:block;margin:14px auto 0;padding:8px 14px;font-size:15px;color:rgba(251,247,236,.65);text-decoration:underline;text-underline-offset:3px}
 
-/* ---------- Portrait fallback ---------- */
+/* ---------- Collapsible panel ---------- */
+#side{min-width:0;min-height:0}
+#full{display:flex;flex-direction:column;gap:12px;height:100%;min-height:0}
+#mini{display:flex;flex-direction:column;align-items:center;gap:10px;height:100%;padding:2px 0}
+#game[data-panel="full"] #mini{display:none}
+#game:not([data-panel="full"]) #full{display:none}
+.fhead{display:flex;align-items:center;gap:6px}
+.fhead .brand{flex:1;padding:0}
+.mb{display:flex;align-items:center;justify-content:center;flex:none;width:56px;height:56px;border-radius:16px;background:rgba(255,255,255,.09);box-shadow:0 0 0 1px rgba(255,255,255,.16) inset;transition:transform .1s,opacity .2s}
+.mb:active{transform:scale(.94)}
+.mb:disabled{opacity:.3;pointer-events:none}
+.mb svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.mb.sm{width:44px;height:44px;border-radius:13px}
+.mturn{display:flex;flex-direction:column;align-items:center;gap:5px;width:100%;min-width:0;margin-top:4px}
+.mchip{width:54px;height:54px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:700 24px var(--display);color:#fff;background:radial-gradient(circle at 35% 28%,var(--c3),var(--c1) 50%,var(--c2));box-shadow:0 0 0 3px #fff,0 4px 10px rgba(0,0,0,.45);--c1:var(--blue);--c2:var(--blue-deep);--c3:var(--blue-soft)}
+#game[data-turn="1"] .mchip{--c1:var(--red);--c2:var(--red-deep);--c3:var(--red-soft)}
+.mname{max-width:100%;font-size:12px;font-weight:650;opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 4px}
+.mscore{display:flex;flex-direction:column;gap:6px;padding:8px 10px;border-radius:14px;background:var(--panel);box-shadow:0 0 0 1px var(--line) inset}
+.ms{display:flex;align-items:center;gap:7px}
+.ms .dot{width:12px;height:12px;box-shadow:0 0 0 1.5px #fff}
+.ms b{font-family:var(--display);font-size:22px;color:var(--gold);font-variant-numeric:tabular-nums;min-width:.8em;text-align:right}
+.mgrow{flex:1;min-height:0}
+#mini .mb.subtle{opacity:.75}
+
+/* ---------- Auto-rotate: portrait ---------- */
 @media (orientation:portrait){
-  #game{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}
-  #frame{height:auto;aspect-ratio:1/1;max-width:none}
-  #boardArea{align-items:flex-start}
-  #side{flex-direction:row;flex-wrap:wrap;align-content:flex-start}
-  #side > *{flex:1 1 46%}
-  .brand,.hint{display:none}
-  #side > .grow{order:9;flex-basis:100%}
+  #game{--sw:auto;grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto}
+  #mini{flex-direction:row;width:100%;height:auto;gap:10px;padding:0}
+  .mturn{flex-direction:row;width:auto;margin:0;gap:10px;min-width:0}
+  .mname{font-size:16px;max-width:30vw}
+  .mscore{flex-direction:row;gap:14px}
+  #full{flex-direction:row;flex-wrap:wrap;height:auto;align-content:flex-start}
+  #full > *{flex:1 1 46%}
+  #full > .fhead{flex-basis:100%}
+  #full .brand small,.hint{display:none}
+  #full > .grow{display:none}
 }
 @media (max-height:640px) and (orientation:landscape){
-  .brand small,.hint{display:none}
-  #turn{padding:10px 12px 12px} #side{gap:8px} .btn{min-height:46px} .row{padding:7px 0}
+  #full .brand small,.hint{display:none}
+  #turn{padding:10px 12px 12px} #full{gap:8px} .btn{min-height:46px} .row{padding:7px 0}
+  #mini{gap:6px} .mb{width:48px;height:48px} .mchip{width:46px;height:46px;font-size:20px}
 }
 </style>
 </head>
@@ -224,10 +255,20 @@ svg.suit{fill:currentColor;display:block}
         <svg id="lines" viewBox="0 0 10 10" preserveAspectRatio="none"></svg>
       </div>
     </div>
+    <div id="toast" role="status" aria-live="polite"></div>
   </section>
 
   <aside id="side">
-    <div class="brand">SEQUENCE<small>DIGITAL BOARD</small></div>
+   <div id="mini">
+    <button class="mb subtle" id="expandBtn" aria-label="Show game panel"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <div class="mturn"><div class="mchip" id="miniChip">P</div><div class="mname" id="miniName"></div></div>
+    <div class="mscore" aria-label="Sequences"><span class="ms"><i class="dot p0"></i><b id="ms0">0</b></span><span class="ms"><i class="dot p1"></i><b id="ms1">0</b></span></div>
+    <div class="mgrow"></div>
+    <button class="mb subtle" id="undoMini" aria-label="Undo last move" disabled><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
+    <button class="mb subtle" id="endMini" aria-label="End game"><svg viewBox="0 0 24 24"><path d="M5 21V4"/><path d="M5 4h13l-3 4.5 3 4.5H5"/></svg></button>
+   </div>
+   <div id="full">
+    <div class="fhead"><div class="brand">SEQUENCE<small>DIGITAL BOARD</small></div><button class="mb sm" id="collapseBtn" aria-label="Hide game panel"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button></div>
     <div id="turn">
       <div class="lbl">NOW PLAYING</div>
       <div class="name" id="turnName">Player 1</div>
@@ -239,11 +280,12 @@ svg.suit{fill:currentColor;display:block}
       <div class="row" id="row1"><i class="dot p1"></i><span class="n" id="n1"></span><span class="s" id="s1">0</span></div>
     </div>
     <p class="hint">Tap a card space to place your chip. Tap an opponent's chip to remove it with a one-eyed Jack.</p>
-    <div class="grow"><div id="toast" role="status" aria-live="polite"></div></div>
+    <div class="grow"></div>
     <button class="btn ghost" id="undoBtn" disabled>
       <svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>Undo Last Move
     </button>
     <button class="btn gold" id="endBtn">End Game</button>
+   </div>
   </aside>
 </main>
 
@@ -500,6 +542,11 @@ function render(dropIdx){
     $('row'+p).classList.toggle('on', S.turn===p);
   }
   $('undoBtn').disabled = !S.history.length;
+  $('undoMini').disabled = !S.history.length;
+  $('game').dataset.panel = S.panel==='full' ? 'full' : 'mini';
+  $('miniChip').textContent = (S.names[S.turn].trim().charAt(0) || 'P').toUpperCase();
+  $('miniName').textContent = S.names[S.turn];
+  $('ms0').textContent = count(0); $('ms1').textContent = count(1);
   if(S.screen==='results') renderResults();
   fit();
 }
@@ -533,6 +580,11 @@ grid.addEventListener('click', function(e){
   if(el) tap(+el.dataset.i);
 });
 $('undoBtn').addEventListener('click', undo);
+$('undoMini').addEventListener('click', undo);
+function endGame(){ S.screen='results'; save(); render(); }
+$('endMini').addEventListener('click', endGame);
+$('expandBtn').addEventListener('click', function(){ S.panel='full'; save(); render(); });
+$('collapseBtn').addEventListener('click', function(){ S.panel='mini'; save(); render(); });
 $('endBtn').addEventListener('click', function(){ S.screen='results'; save(); render(); });
 $('resumeBtn').addEventListener('click', function(){ S.screen='game'; save(); render(); });
 $('againBtn').addEventListener('click', function(){ newGame(1-(S.starter||0)); });

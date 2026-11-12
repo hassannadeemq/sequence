@@ -1,5 +1,5 @@
 // Offline cache for the Sequence board. Bump VERSION when files change.
-const VERSION = 'sequence-v1';
+const VERSION = 'sequence-v2';
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icon-180.png', 'icon-512.png'];
 
 self.addEventListener('install', (e) => {
