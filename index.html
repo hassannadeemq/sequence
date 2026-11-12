@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sequence Board</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Sequence">
+<meta name="theme-color" content="#0a3d2a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-180.png">
+<style>
+:root{
+  --felt-1:#19754f; --felt-2:#0e5237; --felt-3:#072e1d;
+  --gold:#e9c46a; --gold-deep:#b98a2e;
+  --cream:#fbf7ec; --ink:#16211b;
+  --blue:#2167e0; --blue-deep:#123f9c; --blue-soft:#7fb0ff;
+  --red:#dc3030; --red-deep:#8f1616; --red-soft:#ff8d85;
+  --panel:rgba(4,28,18,.55);
+  --line:rgba(233,196,106,.28);
+  --ui:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;
+  --display:"New York",ui-serif,Georgia,"Times New Roman",serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none}
+body{
+  position:fixed;inset:0;
+  font-family:var(--ui);color:var(--cream);
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.38'/%3E%3C/svg%3E"),
+    radial-gradient(ellipse at 42% 45%,var(--felt-1) 0%,var(--felt-2) 55%,var(--felt-3) 100%);
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+  touch-action:manipulation;
+}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;touch-action:manipulation}
+[hidden]{display:none!important}
+
+/* ---------- Game layout ---------- */
+#game{
+  position:absolute;inset:0;display:grid;
+  grid-template-columns:minmax(0,1fr) clamp(224px,25vw,320px);
+  gap:12px;
+  padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));
+}
+#boardArea{position:relative;min-width:0;min-height:0;display:flex;align-items:center;justify-content:center}
+#frame{
+  position:relative;width:100%;height:100%;max-width:calc((100vh - 24px)*1.28);
+  padding:9px;border-radius:18px;
+  background:linear-gradient(145deg,#0b3a27,#052417);
+  box-shadow:0 0 0 1.5px var(--line) inset,0 0 0 3px var(--turn,transparent),0 14px 40px rgba(0,0,0,.45);
+  transition:box-shadow .3s ease;
+}
+#game[data-turn="0"] #frame{--turn:var(--blue)}
+#game[data-turn="1"] #frame{--turn:var(--red)}
+#grid{position:relative;width:100%;height:100%;display:grid;grid-template-columns:repeat(10,1fr);grid-template-rows:repeat(10,1fr);--m:60px}
+
+.cell{position:relative;display:block;min-width:0;min-height:0}
+.card{
+  position:absolute;inset:2px;border-radius:calc(var(--m)*.1);
+  background:linear-gradient(160deg,#fffdf6,#f3ecd9);
+  box-shadow:0 1px 2px rgba(0,0,0,.4);
+  color:var(--ink);overflow:hidden;
+  transition:transform .12s ease;
+}
+.card.red{color:#c8201f}
+.cell:active .card{transform:scale(.95)}
+.ix{position:absolute;display:flex;flex-direction:column;align-items:center;line-height:1;font-weight:700;font-size:calc(var(--m)*.215);letter-spacing:-.04em;width:calc(var(--m)*.24)}
+.ix svg{width:calc(var(--m)*.15);height:calc(var(--m)*.15);margin-top:calc(var(--m)*.02)}
+.ix.tl{left:calc(var(--m)*.05);top:calc(var(--m)*.06)}
+.ix.br{right:calc(var(--m)*.05);bottom:calc(var(--m)*.06);transform:rotate(180deg)}
+.pip{position:absolute;left:50%;top:50%;width:calc(var(--m)*.42);height:calc(var(--m)*.42);transform:translate(-50%,-50%);opacity:.92}
+svg.suit{fill:currentColor;display:block}
+
+.cell.free .card{background:radial-gradient(circle at 50% 40%,#1c7d55,#0a3f2a);box-shadow:0 0 0 1.5px var(--gold) inset,0 1px 2px rgba(0,0,0,.4);color:var(--gold);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:calc(var(--m)*.03)}
+.cell.free svg{width:calc(var(--m)*.36);height:calc(var(--m)*.36);fill:var(--gold)}
+.cell.free span.t{font-size:calc(var(--m)*.15);font-weight:700;letter-spacing:.14em}
+
+.chip{
+  position:absolute;left:50%;top:50%;
+  width:calc(var(--m)*.64);height:calc(var(--m)*.64);
+  margin:calc(var(--m)*-.32) 0 0 calc(var(--m)*-.32);
+  border-radius:50%;opacity:0;transform:scale(.5);pointer-events:none;
+  box-shadow:0 0 0 2px rgba(255,255,255,.9),0 3px 6px rgba(0,0,0,.5),inset 0 -3px 4px rgba(0,0,0,.28),inset 0 2px 3px rgba(255,255,255,.35);
+  transition:opacity .15s ease,transform .15s ease;
+}
+.chip::after{content:"";position:absolute;inset:17%;border-radius:50%;border:calc(var(--m)*.03) dashed rgba(255,255,255,.6)}
+.cell[data-o="0"] .chip{background:radial-gradient(circle at 35% 28%,var(--blue-soft),var(--blue) 48%,var(--blue-deep));opacity:.95;transform:none}
+.cell[data-o="1"] .chip{background:radial-gradient(circle at 35% 28%,var(--red-soft),var(--red) 48%,var(--red-deep));opacity:.95;transform:none}
+.cell.drop .chip{animation:drop .26s cubic-bezier(.2,.9,.3,1.25)}
+@keyframes drop{from{opacity:0;transform:scale(1.7)}to{opacity:.95;transform:scale(1)}}
+.cell.last .chip::before{content:"";position:absolute;left:50%;top:50%;width:22%;height:22%;margin:-11% 0 0 -11%;border-radius:50%;background:rgba(255,255,255,.95);box-shadow:0 0 0 1px rgba(0,0,0,.2)}
+.cell.inseq .chip{box-shadow:0 0 0 2.5px var(--gold),0 3px 6px rgba(0,0,0,.5),inset 0 -3px 4px rgba(0,0,0,.28),inset 0 2px 3px rgba(255,255,255,.35)}
+.cell.nope .card{animation:nope .3s ease}
+@keyframes nope{25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
+
+#lines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+#lines line{vector-effect:non-scaling-stroke;stroke-linecap:round;fill:none}
+#lines .o{stroke:rgba(20,14,0,.8);stroke-width:calc(var(--m)*.25)}
+#lines .g{stroke:var(--gold);stroke-width:calc(var(--m)*.17)}
+#lines .c{stroke:#fff8dc;stroke-width:calc(var(--m)*.045);opacity:.9}
+#lines g{opacity:.93}
+#lines g.new{animation:glow .7s ease}
+@keyframes glow{0%{opacity:0}40%{opacity:1;filter:brightness(1.5)}100%{opacity:.93;filter:none}}
+
+.grow{display:flex;align-items:center;justify-content:center;min-height:0}
+#toast{
+  padding:12px 16px;border-radius:16px;text-align:center;line-height:1.3;
+  background:rgba(12,10,4,.9);color:var(--gold);font-weight:650;font-size:16px;
+  box-shadow:0 0 0 1.5px var(--gold-deep),0 10px 30px rgba(0,0,0,.4);
+  opacity:0;transform:translateY(8px) scale(.96);transition:transform .3s cubic-bezier(.2,.9,.3,1.1),opacity .3s;pointer-events:none;
+}
+#toast.show{transform:none;opacity:1}
+
+/* ---------- Sidebar ---------- */
+#side{display:flex;flex-direction:column;gap:12px;min-height:0}
+.brand{font-family:var(--display);font-size:22px;letter-spacing:.3em;text-align:center;color:var(--gold);padding:4px 0 0;font-weight:600}
+.brand small{display:block;font-family:var(--ui);font-size:10.5px;letter-spacing:.24em;color:rgba(251,247,236,.55);margin-top:4px;font-weight:500}
+#turn{
+  border-radius:18px;padding:16px 16px 18px;text-align:center;
+  background:linear-gradient(160deg,var(--c1),var(--c2));
+  box-shadow:0 0 0 1.5px rgba(255,255,255,.22) inset,0 10px 26px rgba(0,0,0,.35);
+  transition:background .3s;
+}
+#game[data-turn="0"] #turn{--c1:#2c74ee;--c2:#123f9c}
+#game[data-turn="1"] #turn{--c1:#e43c3a;--c2:#8f1616}
+#turn .lbl{font-size:11.5px;letter-spacing:.24em;font-weight:700;opacity:.85}
+#turn .name{font-family:var(--display);font-size:clamp(26px,3.2vw,36px);font-weight:700;line-height:1.1;margin:8px 0 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#turn .pill{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700;padding:5px 12px 5px 8px;border-radius:999px;background:rgba(0,0,0,.25)}
+.dot{display:block;width:16px;height:16px;border-radius:50%;box-shadow:0 0 0 2px #fff,0 1px 3px rgba(0,0,0,.5);flex:none}
+.dot.p0{background:var(--blue)} .dot.p1{background:var(--red)}
+
+.scores{background:var(--panel);border-radius:18px;box-shadow:0 0 0 1px var(--line) inset;padding:6px 14px}
+.scores h3{margin:10px 0 2px;font-size:10.5px;letter-spacing:.24em;font-weight:700;color:rgba(251,247,236,.55)}
+.row{display:flex;align-items:center;gap:11px;padding:11px 0;opacity:.72;transition:opacity .3s}
+.row + .row{border-top:1px solid rgba(255,255,255,.09)}
+.row.on{opacity:1}
+.row .n{flex:1;min-width:0;font-size:17px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .s{font-family:var(--display);font-size:30px;font-weight:700;color:var(--gold);font-variant-numeric:tabular-nums;min-width:1.2em;text-align:right}
+.grow{flex:1}
+.btn{
+  display:flex;align-items:center;justify-content:center;gap:9px;width:100%;min-height:54px;
+  border-radius:15px;font-size:17px;font-weight:650;letter-spacing:.01em;
+  transition:transform .1s,opacity .2s,filter .2s;
+}
+.btn:active{transform:scale(.97);filter:brightness(.92)}
+.btn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.btn.ghost{background:rgba(255,255,255,.1);box-shadow:0 0 0 1px rgba(255,255,255,.2) inset}
+.btn.gold{background:linear-gradient(180deg,#f3d27e,#d2a543);color:#231803;box-shadow:0 6px 18px rgba(0,0,0,.3),0 1px 0 rgba(255,255,255,.5) inset}
+.btn.danger{background:linear-gradient(180deg,#e64543,#b32321);color:#fff}
+.btn:disabled{opacity:.35;pointer-events:none}
+.hint{font-size:12px;line-height:1.4;color:rgba(251,247,236,.5);text-align:center;margin:0 4px}
+
+/* ---------- Overlays ---------- */
+.overlay{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(2,16,10,.72);-webkit-backdrop-filter:blur(7px);backdrop-filter:blur(7px);animation:fade .22s ease}
+#setup.overlay{background:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+@keyframes fade{from{opacity:0}}
+.sheet{
+  width:min(560px,100%);max-height:100%;overflow:auto;border-radius:26px;padding:34px 34px 30px;
+  background:linear-gradient(170deg,#0f5539,#06291a);
+  box-shadow:0 0 0 1.5px var(--line) inset,0 30px 80px rgba(0,0,0,.55);
+  animation:rise .28s cubic-bezier(.2,.9,.3,1.05);
+}
+@keyframes rise{from{transform:translateY(18px) scale(.98);opacity:0}}
+.sheet h1{font-family:var(--display);font-size:44px;letter-spacing:.24em;margin:0;text-align:center;color:var(--gold);font-weight:600;padding-left:.24em}
+.sheet h2{font-family:var(--display);font-size:30px;margin:0 0 8px;text-align:center;font-weight:700}
+.sheet p.sub{text-align:center;margin:10px 0 26px;color:rgba(251,247,236,.7);font-size:16px;line-height:1.45}
+.field{display:flex;align-items:center;gap:14px;margin-bottom:14px;padding:6px 8px 6px 16px;border-radius:16px;background:rgba(0,0,0,.28);box-shadow:0 0 0 1px rgba(255,255,255,.12) inset}
+.field .dot{width:26px;height:26px}
+.field label{font-size:12px;letter-spacing:.14em;font-weight:700;width:52px;color:rgba(251,247,236,.6)}
+.field input{flex:1;min-width:0;height:50px;border:0;background:none;color:var(--cream);font:600 20px var(--ui);outline:none;-webkit-user-select:text;user-select:text}
+.field input::placeholder{color:rgba(251,247,236,.35)}
+.field:focus-within{box-shadow:0 0 0 2px var(--gold) inset}
+.stack{display:flex;flex-direction:column;gap:11px;margin-top:22px}
+.pair{display:flex;gap:11px}
+
+.res{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0 4px}
+.rc{position:relative;border-radius:20px;padding:24px 14px 18px;text-align:center;background:rgba(0,0,0,.3);box-shadow:0 0 0 1px rgba(255,255,255,.12) inset;opacity:.75}
+.rc.win{opacity:1;background:linear-gradient(170deg,rgba(233,196,106,.25),rgba(0,0,0,.25));box-shadow:0 0 0 2.5px var(--gold) inset,0 10px 30px rgba(0,0,0,.35)}
+.rc.tie{opacity:1}
+.rc .badge{position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:var(--gold);color:#231803;font-size:11.5px;font-weight:800;letter-spacing:.18em;padding:5px 12px;border-radius:999px;display:none}
+.rc.win .badge{display:block}
+.rc .dot{width:30px;height:30px;margin:0 auto 10px}
+.rc .n{font-size:20px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rc .big{font-family:var(--display);font-size:68px;line-height:1;font-weight:700;color:var(--gold);margin:8px 0 2px}
+.rc .u{font-size:12px;letter-spacing:.18em;font-weight:700;color:rgba(251,247,236,.6)}
+.link{display:block;margin:14px auto 0;padding:8px 14px;font-size:15px;color:rgba(251,247,236,.65);text-decoration:underline;text-underline-offset:3px}
+
+/* ---------- Portrait fallback ---------- */
+@media (orientation:portrait){
+  #game{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}
+  #frame{height:auto;aspect-ratio:1/1;max-width:none}
+  #boardArea{align-items:flex-start}
+  #side{flex-direction:row;flex-wrap:wrap;align-content:flex-start}
+  #side > *{flex:1 1 46%}
+  .brand,.hint{display:none}
+  #side > .grow{order:9;flex-basis:100%}
+}
+@media (max-height:640px) and (orientation:landscape){
+  .brand small,.hint{display:none}
+  #turn{padding:10px 12px 12px} #side{gap:8px} .btn{min-height:46px} .row{padding:7px 0}
+}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="s-H" viewBox="0 0 100 100"><path d="M50 90C20 64 7 47 7 30 7 16 18 7 30 7c9 0 16 5 20 13 4-8 11-13 20-13 12 0 23 9 23 23 0 17-13 34-43 60z"/></symbol>
+    <symbol id="s-D" viewBox="0 0 100 100"><path d="M50 4 86 50 50 96 14 50z"/></symbol>
+    <symbol id="s-S" viewBox="0 0 100 100"><path d="M50 5c30 26 43 41 43 56 0 12-9 21-21 21-7 0-13-3-17-9 1 10 5 17 12 22H33c7-5 11-12 12-22-4 6-10 9-17 9C16 82 7 73 7 61 7 46 20 31 50 5z"/></symbol>
+    <symbol id="s-C" viewBox="0 0 100 100"><circle cx="50" cy="27" r="20"/><circle cx="28" cy="58" r="20"/><circle cx="72" cy="58" r="20"/><circle cx="50" cy="50" r="11"/><path d="M50 56c-1 18-5 31-14 39h28c-9-8-13-21-14-39z"/></symbol>
+    <symbol id="s-star" viewBox="0 0 100 100"><path d="M50 6l12.6 28.6 31 3-23.4 20.6 6.9 30.4L50 72.8 22.9 88.6l6.9-30.4L6.4 37.6l31-3z"/></symbol>
+  </defs>
+</svg>
+
+<!-- Game -->
+<main id="game" data-turn="0" hidden>
+  <section id="boardArea">
+    <div id="frame">
+      <div id="grid" role="grid" aria-label="Sequence board">
+        <svg id="lines" viewBox="0 0 10 10" preserveAspectRatio="none"></svg>
+      </div>
+    </div>
+  </section>
+
+  <aside id="side">
+    <div class="brand">SEQUENCE<small>DIGITAL BOARD</small></div>
+    <div id="turn">
+      <div class="lbl">NOW PLAYING</div>
+      <div class="name" id="turnName">Player 1</div>
+      <span class="pill"><i class="dot" id="turnDot"></i><span id="turnColor">Blue</span></span>
+    </div>
+    <div class="scores">
+      <h3>SEQUENCES</h3>
+      <div class="row" id="row0"><i class="dot p0"></i><span class="n" id="n0"></span><span class="s" id="s0">0</span></div>
+      <div class="row" id="row1"><i class="dot p1"></i><span class="n" id="n1"></span><span class="s" id="s1">0</span></div>
+    </div>
+    <p class="hint">Tap a card space to place your chip. Tap an opponent's chip to remove it with a one-eyed Jack.</p>
+    <div class="grow"><div id="toast" role="status" aria-live="polite"></div></div>
+    <button class="btn ghost" id="undoBtn" disabled>
+      <svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>Undo Last Move
+    </button>
+    <button class="btn gold" id="endBtn">End Game</button>
+  </aside>
+</main>
+
+<!-- Setup -->
+<div class="overlay" id="setup" hidden>
+  <form class="sheet" id="setupForm" autocomplete="off">
+    <h1>SEQUENCE</h1>
+    <p class="sub">Deal your real cards. Use this board for the chips.</p>
+    <div class="field"><i class="dot p0"></i><label for="in0">BLUE</label><input id="in0" maxlength="16" placeholder="Player 1" enterkeyhint="next" autocapitalize="words" spellcheck="false"></div>
+    <div class="field"><i class="dot p1"></i><label for="in1">RED</label><input id="in1" maxlength="16" placeholder="Player 2" enterkeyhint="go" autocapitalize="words" spellcheck="false"></div>
+    <div class="stack"><button class="btn gold" type="submit">Start Game</button></div>
+  </form>
+</div>
+
+<!-- Results -->
+<div class="overlay" id="results" hidden>
+  <div class="sheet">
+    <h2 id="resTitle"></h2>
+    <div class="res">
+      <div class="rc" id="rc0"><span class="badge">WINNER</span><i class="dot p0"></i><div class="n" id="rn0"></div><div class="big" id="rs0">0</div><div class="u" id="ru0">SEQUENCES</div></div>
+      <div class="rc" id="rc1"><span class="badge">WINNER</span><i class="dot p1"></i><div class="n" id="rn1"></div><div class="big" id="rs1">0</div><div class="u" id="ru1">SEQUENCES</div></div>
+    </div>
+    <div class="stack">
+      <div class="pair">
+        <button class="btn gold" id="againBtn">Play Again</button>
+        <button class="btn ghost" id="toSetupBtn">Return to Setup</button>
+      </div>
+    </div>
+    <button class="link" id="resumeBtn">Back to the board</button>
+  </div>
+</div>
+
+<!-- Remove chip confirm -->
+<div class="overlay" id="confirm" hidden>
+  <div class="sheet" style="width:min(440px,100%)">
+    <h2>Remove this chip?</h2>
+    <p class="sub" id="confirmText"></p>
+    <div class="pair">
+      <button class="btn ghost" id="cancelRemove">Cancel</button>
+      <button class="btn danger" id="doRemove">Remove Chip</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+// Standard Sequence board. FR = free corner, T = 10.
+var LAYOUT = [
+  'FR 2S 3S 4S 5S 6S 7S 8S 9S FR',
+  '6C 5C 4C 3C 2C AH KH QH TH TS',
+  '7C AS 2D 3D 4D 5D 6D 7D 9H QS',
+  '8C KS 6C 5C 4C 3C 2C 8D 8H KS',
+  '9C QS 7C 6H 5H 4H AH 9D 7H AS',
+  'TC TS 8C 7H 2H 3H KH TD 6H 2D',
+  'QC 9S 9C 8H 9H TH QH QD 5H 3D',
+  'KC 8S TC QC KC AC AD KD 4H 4D',
+  'AC 7S 6S 5S 4S 3S 2S 2H 3H 5D',
+  'FR AD KD QD TD 9D 8D 7D 6D FR'
+].join(' ').split(' ');
+var CORNERS = {0:1, 9:1, 90:1, 99:1};
+var DIRS = [[0,1],[1,0],[1,1],[1,-1]];
+var COLORS = ['Blue','Red'];
+var RANKS = {A:'Ace',K:'King',Q:'Queen',T:'Ten','9':'Nine','8':'Eight','7':'Seven','6':'Six','5':'Five','4':'Four','3':'Three','2':'Two'};
+var SUITS = {S:'Spades',H:'Hearts',D:'Diamonds',C:'Clubs'};
+var KEY = 'sequence-board-v1';
+
+function $(id){ return document.getElementById(id); }
+
+function fresh(){
+  return {screen:'setup', names:['Player 1','Player 2'], board:emptyBoard(), turn:0, starter:0, history:[], seqs:[]};
+}
+function emptyBoard(){ var b=[]; for(var i=0;i<100;i++) b.push(null); return b; }
+
+function load(){
+  try{
+    var s = JSON.parse(localStorage.getItem(KEY));
+    if(s && Array.isArray(s.board) && s.board.length===100 && Array.isArray(s.names) && Array.isArray(s.history) && Array.isArray(s.seqs)) return s;
+  }catch(e){}
+  return null;
+}
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+
+var S = load() || fresh();
+var grid = $('grid'), lines = $('lines'), cells = [], shownSeqs = {}, pendingRemove = null;
+
+// ---------- Build board ----------
+function use(id, cls){ return '<svg class="suit '+(cls||'')+'" viewBox="0 0 100 100"><use href="#s-'+id+'"/></svg>'; }
+(function build(){
+  var frag = document.createDocumentFragment();
+  LAYOUT.forEach(function(code, i){
+    var el;
+    if(code==='FR'){
+      el = document.createElement('div');
+      el.className = 'cell free';
+      el.setAttribute('aria-label','Free space');
+      el.innerHTML = '<span class="card">'+use('star')+'<span class="t">FREE</span></span>';
+    } else {
+      var r = code[0], s = code[1], rank = r==='T' ? '10' : r;
+      var ix = '<b>'+rank+'</b>'+use(s);
+      el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'cell';
+      el.dataset.i = i;
+      el.setAttribute('aria-label', RANKS[r]+' of '+SUITS[s]);
+      el.innerHTML = '<span class="card'+(s==='H'||s==='D'?' red':'')+'"><span class="ix tl">'+ix+'</span>'+use(s,'pip')+'<span class="ix br">'+ix+'</span></span><span class="chip"></span>';
+    }
+    cells.push(el);
+    frag.appendChild(el);
+  });
+  grid.insertBefore(frag, lines);
+})();
+
+function fit(){
+  var r = grid.getBoundingClientRect();
+  if(r.width) grid.style.setProperty('--m', Math.min(r.width, r.height)/10 + 'px');
+}
+window.addEventListener('resize', fit);
+window.addEventListener('orientationchange', function(){ setTimeout(fit, 200); });
+if(window.ResizeObserver) new ResizeObserver(fit).observe(grid);
+
+// ---------- Rules ----------
+// Finds new sequences made by player p placing a chip at idx. A new sequence must
+// include the new chip and may share at most one space with an existing sequence
+// on the same line (traditional rule), so a run of nine counts as two.
+function detect(idx, p){
+  var r = Math.floor(idx/10), c = idx%10, out = [];
+  function mine(rr, cc){
+    if(rr<0||rr>9||cc<0||cc>9) return false;
+    var k = rr*10+cc;
+    return CORNERS[k]===1 || S.board[k]===p;
+  }
+  DIRS.forEach(function(d, di){
+    var wins = [];
+    for(var k=0;k<5;k++){
+      var w = [], ok = true;
+      for(var j=0;j<5;j++){
+        var rr = r+(j-k)*d[0], cc = c+(j-k)*d[1];
+        if(!mine(rr,cc)){ ok=false; break; }
+        w.push(rr*10+cc);
+      }
+      if(!ok) continue;
+      var worst = 0;
+      S.seqs.forEach(function(s){
+        if(s.p!==p || s.d!==di) return;
+        var ov = w.filter(function(x){ return s.cells.indexOf(x)>=0; }).length;
+        if(ov>worst) worst = ov;
+      });
+      if(worst<=1) wins.push({k:k, cells:w, ov:worst});
+    }
+    if(!wins.length) return;
+    var a = wins.filter(function(w){return w.k===0;})[0], b = wins.filter(function(w){return w.k===4;})[0];
+    if(a && b){ out.push(a,b); }           // chip joined two runs: 9 in a row = two sequences
+    else { wins.sort(function(x,y){return x.ov-y.ov;}); out.push(wins[0]); }
+  });
+  return out.map(function(w){ return {p:p, d:dirOf(w.cells), cells:w.cells}; });
+}
+function dirOf(cs){
+  var dr = Math.floor(cs[1]/10)-Math.floor(cs[0]/10), dc = cs[1]%10-cs[0]%10;
+  for(var i=0;i<4;i++) if(DIRS[i][0]===dr && DIRS[i][1]===dc) return i;
+  return 0;
+}
+function inSeq(idx){ return S.seqs.some(function(s){ return s.cells.indexOf(idx)>=0; }); }
+function count(p){ return S.seqs.filter(function(s){ return s.p===p; }).length; }
+
+// ---------- Moves ----------
+function tap(idx){
+  if(S.screen!=='game') return;
+  var owner = S.board[idx];
+  if(owner===null){ place(idx); return; }
+  if(owner!==S.turn && !inSeq(idx)){ askRemove(idx); return; }
+  nope(idx, owner===S.turn ? 'That space already has your chip' : 'Chips in a sequence are locked');
+}
+function place(idx){
+  var p = S.turn, moveNo = S.history.length;
+  S.board[idx] = p;
+  var found = detect(idx, p);
+  found.forEach(function(s){ s.m = moveNo; S.seqs.push(s); });
+  S.history.push({t:'place', i:idx, p:p});
+  S.turn = 1-p;
+  save(); render(idx);
+  if(found.length) toast(S.names[p]+' completed '+(found.length>1 ? found.length+' sequences!' : 'a sequence!'));
+}
+function askRemove(idx){
+  pendingRemove = idx;
+  $('confirmText').textContent = S.names[S.turn]+' removes '+S.names[1-S.turn]+'’s chip with a one-eyed Jack. This uses the turn.';
+  $('confirm').hidden = false;
+}
+function remove(idx){
+  var p = S.turn;
+  S.history.push({t:'remove', i:idx, p:p, o:S.board[idx]});
+  S.board[idx] = null;
+  S.turn = 1-p;
+  save(); render();
+}
+function undo(){
+  var h = S.history.pop();
+  if(!h) return;
+  if(h.t==='place'){
+    S.board[h.i] = null;
+    var n = S.history.length;
+    S.seqs = S.seqs.filter(function(s){ return s.m!==n; });
+  } else {
+    S.board[h.i] = h.o;
+  }
+  S.turn = h.p;
+  save(); render();
+}
+function newGame(starter){
+  S.board = emptyBoard(); S.history = []; S.seqs = [];
+  S.starter = starter; S.turn = starter; S.screen = 'game';
+  shownSeqs = {};
+  save(); render();
+}
+
+// ---------- Render ----------
+function render(dropIdx){
+  $('setup').hidden = S.screen!=='setup';
+  $('game').hidden = S.screen==='setup';
+  $('results').hidden = S.screen!=='results';
+  if(S.screen==='setup') return;
+
+  var last = S.history.length ? S.history[S.history.length-1] : null;
+  var lastIdx = last && last.t==='place' ? last.i : -1;
+  var locked = {};
+  S.seqs.forEach(function(s){ s.cells.forEach(function(c){ locked[c]=1; }); });
+  cells.forEach(function(el, i){
+    if(CORNERS[i]) return;
+    var o = S.board[i];
+    el.dataset.o = o===null ? '' : o;
+    el.classList.toggle('last', i===lastIdx);
+    el.classList.toggle('inseq', !!locked[i] && o!==null);
+    el.classList.toggle('drop', i===dropIdx);
+  });
+
+  var html = '', now = {};
+  S.seqs.forEach(function(s){
+    var a = s.cells[0], b = s.cells[4], id = s.p+':'+s.cells.join(',');
+    var xy = 'x1="'+(a%10+.5)+'" y1="'+(Math.floor(a/10)+.5)+'" x2="'+(b%10+.5)+'" y2="'+(Math.floor(b/10)+.5)+'"';
+    html += '<g'+(shownSeqs[id]?'':' class="new"')+'><line class="o" '+xy+'/><line class="g" '+xy+'/><line class="c" '+xy+'/></g>';
+    now[id] = 1;
+  });
+  lines.innerHTML = html;
+  shownSeqs = now;
+
+  $('game').dataset.turn = S.turn;
+  $('turnName').textContent = S.names[S.turn];
+  $('turnColor').textContent = COLORS[S.turn];
+  $('turnDot').className = 'dot p'+S.turn;
+  for(var p=0;p<2;p++){
+    $('n'+p).textContent = S.names[p];
+    $('s'+p).textContent = count(p);
+    $('row'+p).classList.toggle('on', S.turn===p);
+  }
+  $('undoBtn').disabled = !S.history.length;
+  if(S.screen==='results') renderResults();
+  fit();
+}
+function renderResults(){
+  var a = count(0), b = count(1), w = a===b ? -1 : (a>b ? 0 : 1);
+  $('resTitle').textContent = w<0 ? 'It’s a draw' : S.names[w]+' wins!';
+  [a,b].forEach(function(n, p){
+    $('rn'+p).textContent = S.names[p];
+    $('rs'+p).textContent = n;
+    $('ru'+p).textContent = n===1 ? 'SEQUENCE' : 'SEQUENCES';
+    $('rc'+p).className = 'rc'+(w===p ? ' win' : w<0 ? ' tie' : '');
+  });
+}
+
+var toastTimer;
+function toast(msg){
+  var t = $('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ t.classList.remove('show'); }, 2600);
+}
+function nope(idx, msg){
+  var el = cells[idx];
+  el.classList.remove('nope'); void el.offsetWidth; el.classList.add('nope');
+  toast(msg);
+}
+
+// ---------- Events ----------
+grid.addEventListener('click', function(e){
+  var el = e.target.closest ? e.target.closest('button.cell') : null;
+  if(el) tap(+el.dataset.i);
+});
+$('undoBtn').addEventListener('click', undo);
+$('endBtn').addEventListener('click', function(){ S.screen='results'; save(); render(); });
+$('resumeBtn').addEventListener('click', function(){ S.screen='game'; save(); render(); });
+$('againBtn').addEventListener('click', function(){ newGame(1-(S.starter||0)); });
+$('toSetupBtn').addEventListener('click', function(){ S.screen='setup'; save(); showSetup(); render(); });
+$('cancelRemove').addEventListener('click', function(){ pendingRemove=null; $('confirm').hidden=true; });
+$('doRemove').addEventListener('click', function(){
+  $('confirm').hidden = true;
+  if(pendingRemove!==null){ remove(pendingRemove); pendingRemove=null; }
+});
+$('setupForm').addEventListener('submit', function(e){
+  e.preventDefault();
+  S.names = [($('in0').value.trim() || 'Player 1'), ($('in1').value.trim() || 'Player 2')];
+  if(document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  newGame(0);
+});
+function showSetup(){
+  $('in0').value = S.names[0]==='Player 1' ? '' : S.names[0];
+  $('in1').value = S.names[1]==='Player 2' ? '' : S.names[1];
+}
+// iOS: stop pinch / double-tap zoom so the board never shifts mid-game
+document.addEventListener('gesturestart', function(e){ e.preventDefault(); });
+document.addEventListener('dblclick', function(e){ e.preventDefault(); });
+
+showSetup();
+render();
+
+if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
+  window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
+}
+})();
+</script>
+</body>
+</html>
